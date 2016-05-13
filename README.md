@@ -2,17 +2,38 @@
 [![Latest Version](https://img.shields.io/github/release/spatie/laravel-newsletter.svg?style=flat-square)](https://github.com/spatie/laravel-newsletter/releases)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 [![Build Status](https://img.shields.io/travis/spatie/laravel-newsletter/master.svg?style=flat-square)](https://travis-ci.org/spatie/laravel-newsletter)
-[![SensioLabsInsight](https://insight.sensiolabs.com/projects/10993a65-449a-488a-886c-f810b9950070/mini.png)](https://insight.sensiolabs.com/projects/10993a65-449a-488a-886c-f810b9950070)
+[![SensioLabsInsight](https://img.shields.io/sensiolabs/i/10993a65-449a-488a-886c-f810b9950070.svg?style=flat-square)](https://insight.sensiolabs.com/projects/10993a65-449a-488a-886c-f810b9950070)
 [![Quality Score](https://img.shields.io/scrutinizer/g/spatie/laravel-newsletter.svg?style=flat-square)](https://scrutinizer-ci.com/g/spatie/laravel-newsletter)
 [![Total Downloads](https://img.shields.io/packagist/dt/spatie/laravel-newsletter.svg?style=flat-square)](https://packagist.org/packages/spatie/laravel-newsletter)
 
-This package provides an easy way to integrate email marketing services with Laravel 5. Currently the package only supports MailChimp. In the future more services may get added.
+This package provides an easy way to integrate MailChimp with Laravel 5. Behind the scenes v3 for the MailChimp API is used. Here are some examples of what you can do with the package:
+
+```php
+Newsletter::subscribe('rincewind@discworld.com');
+
+Newsletter::unsubscribe('the.luggage@discworld.com');
+
+//Merge variables can be passed as the second argument
+Newsletter::subscribe('sam.vines@discworld.com', ['firstName'=>'Sam', 'lastName'=>'Vines']);
+
+//Subscribe someone to a specific list by using the third argument:
+Newsletter::subscribe('nanny.ogg@discworld.com', ['firstName'=>'Nanny', 'lastName'=>'Ogg'], 'Name of your list');
+
+//Get some member info, returns an array described in the official docs
+Newsletter::getMember('lord.vetinari@discworld.com');
+
+//Returns a boolean
+Newsletter::hasMember('greebo@discworld.com');
+
+//If you want to do something else, you can get an instance of the underlying API:
+Newsletter::getApi();
+```
 
 Spatie is a webdesign agency in Antwerp, Belgium. You'll find an overview of all our open source projects [on our website](https://spatie.be/opensource).
 
 ## Installation
 
-You can install this package via composer using:
+You can install this package via Composer using:
 
 ```bash
 composer require spatie/laravel-newsletter
@@ -34,12 +55,12 @@ If you want to make use of the facade you must install it as well.
 ```php
 // config/app.php
 'aliases' => [
-    ...
+    ..
     'Newsletter' => 'Spatie\Newsletter\NewsletterFacade',
 ];
 ```
 
-To publish the config file to ``app/config/laravel-newsletter.php`` run:
+To publish the config file to `app/config/laravel-newsletter.php` run:
 
 ```bash
 php artisan vendor:publish --provider="Spatie\Newsletter\NewsletterServiceProvider"
@@ -49,13 +70,17 @@ This wil publish a file `laravel-newsletter.php` in your config directory with t
 ```php
 return [
 
-    'mailChimp' => [
-
         /*
          * The api key of a MailChimp account. You can find yours here:
          * https://us10.admin.mailchimp.com/account/api-key-popup/
          */
         'apiKey' => env('MAILCHIMP_APIKEY'),
+
+        /*
+         * When not specifying a listname in the various methods,
+         *  this list name will be used.
+         */
+        'defaultListName' => 'subscribers',
 
         /*
          * Here you can define properties of the lists you want to
@@ -77,48 +102,11 @@ return [
                  * how to get this value:
                  * http://kb.mailchimp.com/lists/managing-subscribers/find-your-list-id
                  */
-                'id' => '',
-
-                /*
-                 * These values will be used when creating a new campaign.
-                 */
-                'createCampaign' => [
-                    'fromEmail' => '',
-                    'fromName' => '',
-                    'toName' => ''
-                ],
-                
-                /*
-                 * These values will be used when subscribing to a list.
-                 */
-                'subscribe' => [
-                    'emailType' => 'html',
-                    'requireDoubleOptin' => false,
-                    'updateExistingUser' => false
-                ],
-                
-                /*
-                 * These values will be used when unsubscribing from a list.
-                 */
-                'unsubscribe' => [
-                    'deletePermanently' => false,
-                    'sendGoodbyeEmail' => false,
-                    'sendUnsubscribeEmail' => false
-                ],
+                 'id' => env('MAILCHIMP_LIST_ID'),
             ],
         ],
-    ],
 ];
-
 ```
-
-## Upgrading
-
-### From 1.0 to 2.0
-If you specified a listName on a subscription you need to modify that call from
-`Newsletter::subscribe($email, $listName)`
-to
-`Newsletter::subscribe($email, [], $listName)`
 
 ## Usage
 
@@ -128,27 +116,14 @@ After you've installed the package and filled in the values in the config-file w
 use Newsletter;
 ```
 
+### Subscribing and unsubscribing
+
 Subscribing an email address can be done like this:
 
 ```php
 use Newsletter;
 
 Newsletter::subscribe('rincewind@discworld.com');
-```
-
-If you need to update the subscriber info
-
-```php
-/**
- * Update a member subscribed to a list
- *
- * @param $email
- * @param array $mergeVars
- * @param string $list
- *
- * @return mixed
- */
-Newsletter::updateMember($email, $mergeVars = [],  $list = '');
 ```
 
 Let's unsubcribe someone:
@@ -161,6 +136,7 @@ You can pass some merge variables as the second argument:
 ```php
 Newsletter::subscribe('rincewind@discworld.com', ['firstName'=>'Rince', 'lastName'=>'Wind']);
 ```
+Please note the at the time of this writing the default merge variables in MailChimp are named `FNAME` and `LNAME`. In our examples we use `firstName` and `lastName` for extra readability.
 
 You can subscribe someone to a specific list by using the third argument:
 ```php
@@ -168,111 +144,68 @@ Newsletter::subscribe('rincewind@discworld.com', ['firstName'=>'Rince', 'lastNam
 ```
 That third argument is the name of a list you configured in the config file.
 
+You can also unsubscribe someone from a specific list:
+```php
+Newsletter::unsubscribe('rincewind@discworld.com', 'subscribers');
+```
+
+### Getting subscriber info
+
+You can get information on a subscriber by using the `getMember`-function:
+```php
+Newsletter::getMember('lord.vetinari@discworld.com');
+```
+
+This will return an array with information on the subscriber. If there's no one subscribed with that
+e-mailaddress the function will return `false`
+
+There's also a convience method to check if some in subscribed:
+
+```php
+Newsletter::hasMember('nanny.ogg@discworld.com'); //returns a bool
+```
+
+### Creating a campaign
 
 This is how you create a campaign:
-
-```php
-$subject = 'The Truth newsletter';
-$contents = '<h1>Big news</h1>The world is carried by four elephants on a turtle!';
-
-Newsletter::createCampaign($subject, $contents);
-```
-The method will create a campaign, but not send it. If you want to send a campaign, see below.
-
-If you have multiple lists defined in the config file you must pass the name of the list an extra parameter:
-
-```php
-Newsletter::subscribe('havelock.vetinari@discworld.com', ['firstName'=>'Havelock', 'lastName'=>'Vetinari'], 'mySecondList');
-Newsletter::unsubscribe('sam.vimes@discworld.com', ['firstName'=>'Sam', 'lastName'=>'Vines'], 'mySecondList');
-
-Newsletter::createCampaign($subject, $contents, 'mySecondList');
-```
-
-And this is how to update a campaign:
-
 ```php
 /**
- * Update a newsletter campaign.
+ * @param string $fromName
+ * @param string $replyTo
+ * @param string $subject
+ * @param string $html
+ * @param string $listName
+ * @param array  $options
+ * @param array  $contentOptions
  *
- * @param $campaignId string
- * @param $fieldName string
- * @param $value array
+ * @return array|bool
  *
- * @return mixed
+ * @throws \Spatie\Newsletter\Exceptions\InvalidNewsletterList
  */
-Newsletter::updateCampaign($campaignId, $fieldName, $value = []);
+public function createCampaign($fromName, $replyTo, $subject, $html = '', $listName = '', $options = [], $contentOptions = [])
 ```
 
-Example of how to update the content or the subject of a campaign
+Note the campaign will only be created, no mails will be sent out.
+
+### Handling errors
+
+If something went wrong you can get the last error with
+```php
+Newsletter::getLastError();
+```
+
+If you just want to make sure if the last action succeeded you can to this:
+```php
+Newsletter::lastActionSucceeded();
+```
+
+### Need something else?
+
+If you need more functionality you get an instance of the underlying [MailChimp Api](https://github.com/drewm/mailchimp-api) with:
 
 ```php
-Newsletter::updateCampaign(
-    $campaignId,
-    'content', 
-    [
-        'html' => File::get( 'path/to/some/rendered/view/file' ),
-    ]
-);
-
-Newsletter::updateCampaign(
-    $campaignId,
-    'options', 
-    [
-        'subject' => 'New subject'
-    ]
-);
-```
-
-You can use this method to send a test campaign ...
-
-```php
-/**
- * Send a test newsletter campaign.
- *
- * @param $campaignId string
- * @param $emails string or array
- * @param $sendType string
- *
- * @return mixed
- */
-Newsletter::sendTestCampaign($campaignId, $emails, $sendType = '')
-```
-
-... or send the final campaign
-
-```php
-/**
- * Send a newsletter campaign.
- *
- * @param $campaignId string
- *
- * @return mixed
- */
-Newsletter::sendCampaign($campaignId)
-```
-
-
-And finally, this is how you delete a campaign:
-
-```php
-/**
- * Delete a newsletter campaign.
- *
- * @param $campaignId
- *
- * @return mixed
- */
-Newsletter::deleteCampaign($campaignId);
-```
-
-If you need more functionality you get an instance of the underlying service api with:
-
-```
 $api = Newsletter::getApi();
 ```
-
-As this package currently only supports MailChimp this method will always return an instance of [the MailChimp API](https://bitbucket.org/mailchimp/mailchimp-api-php).
-
 
 ## Testing
 
@@ -294,12 +227,9 @@ If you discover any security related issues, please email [freek@spatie.be](mail
 - [Freek Van der Herten](https://github.com/freekmurze)
 - [All Contributors](../../contributors)
 
-This package was inspired by the [Bulk Email Notifications series on Laracasts](https://laracasts.com/lessons/bulk-email-notifications-part-1).
-
 ## About Spatie
 Spatie is a webdesign agency in Antwerp, Belgium. You'll find an overview of all our open source projects [on our website](https://spatie.be/opensource).
 
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
